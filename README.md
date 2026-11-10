@@ -7,8 +7,9 @@ com as camadas raw, refined e marts. O projeto segue spec-driven development:
 documentar requisitos e decisões antes de implementar, avançando por etapas
 revisadas e com um commit separado para cada etapa.
 
-**Etapa 1:** estrutura e configuração iniciais. Ainda não existem ingestão,
-transformações, indicadores SQL, testes ou banco de dados gerado.
+**Etapa 2:** ingestão RAW implementada. O banco local contém somente as três
+tabelas do schema `raw`. Refined, marts, dashboard e suíte de testes ainda não
+foram implementados.
 
 ## Tecnologias
 
@@ -17,10 +18,31 @@ transformações, indicadores SQL, testes ou banco de dados gerado.
 - pytest previsto para testes com dados fictícios, sem acessar o banco persistido.
 - Sem orquestrador.
 
-As dependências estão declaradas em `pyproject.toml`. A instalação e a geração do
-`uv.lock` ainda não foram executadas nesta etapa. Quando for necessário preparar
-o ambiente, o comando será `uv sync`; o lockfile gerado deverá ser versionado.
-Ainda não há comando para executar um pipeline ou uma suíte de testes.
+As dependências estão declaradas em `pyproject.toml`. Em um ambiente com acesso
+ao PyPI, execute a partir da raiz do projeto:
+
+```bash
+uv sync
+uv run pipeline-saude raw
+```
+
+O comando lê `data/` e grava `artifacts/saude.duckdb`. Para escolher os caminhos:
+
+```bash
+uv run pipeline-saude raw --data-dir data --database artifacts/saude.duckdb
+uv run pipeline-saude raw --help
+```
+
+Também é possível executar o módulo após instalar o projeto:
+`uv run python -m pipeline_saude.cli raw`.
+A saída JSON informa banco, lote, instante, hashes e contagens esperadas/obtidas.
+Falhas retornam código de saída 1 e mensagem no stderr.
+
+Nesta sessão, o PyPI estava inacessível. Foi possível instalar apenas DuckDB
+1.5.6 a partir do cache local e validar com
+`PYTHONPATH=src .venv/bin/python -m pipeline_saude.cli raw`.
+A sincronização completa e a geração do `uv.lock` continuam pendentes; quando
+gerado, o lockfile deverá ser versionado. Não há suíte de testes executável ainda.
 
 ## Dados disponíveis
 
@@ -73,19 +95,31 @@ finais de qualidade e dos indicadores serão especificadas antes da implementaç
 
 ## Arquitetura e estrutura
 
-As três camadas estão aprovadas, mas os detalhes de suas regras permanecem em
-especificação. A raw deverá preservar os dados originais; refined será destinada
-à tipagem e qualidade; marts, aos indicadores SQL, cada um em seu próprio arquivo.
+As três camadas estão aprovadas. A RAW preserva os campos originais como texto,
+incluindo vazios como `''`, zeros e espaços. Acrescenta `_source_file`,
+`_source_sha256`, `_source_row_number`, `_ingested_at` e `_batch_id`.
+Cada execução substitui as três tabelas em uma única transação, sem acumular
+linhas e sem deduplicar a origem. Não mantém versões antigas no banco.
+Consulte o contrato completo em [docs/raw_spec.md](docs/raw_spec.md) e a
+validação em [docs/raw_validation.md](docs/raw_validation.md).
+
+Refined será destinada à tipagem e qualidade; marts, aos indicadores SQL, cada
+um em seu próprio arquivo. As regras dessas etapas continuam pendentes.
 
 ```text
 pipeline-saude-final/
 ├── data/                       # CSVs locais; ignorados pelo Git
 ├── docs/
 │   ├── decisions.md            # Decisões aprovadas e questões pendentes
-│   └── ai_log.md               # Uso da IA, limitações e correções
+│   ├── ai_log.md               # Uso da IA, limitações e correções
+│   ├── raw_spec.md             # Contrato de ingestão
+│   └── raw_validation.md       # Resultados da validação
 ├── src/pipeline_saude/
 │   ├── __init__.py
-│   ├── raw/                    # Apenas reserva de diretório
+│   ├── cli.py                  # Comando raw
+│   ├── raw/
+│   │   ├── __init__.py
+│   │   └── ingest.py           # Leitura e carga transacional
 │   ├── refined/                # Apenas reserva de diretório
 │   └── marts/                  # Apenas reserva de diretório
 ├── sql/marts/                  # Apenas reserva de diretório
@@ -95,14 +129,14 @@ pipeline-saude-final/
 ```
 
 Os arquivos `.gitkeep` preservam diretórios vazios no Git. O diretório
-`artifacts/`, previsto para bancos e relatórios gerados, está ignorado e ainda
-não foi criado. Testes e arquivos SQL serão adicionados nas etapas próprias.
+`artifacts/` contém o banco local e está ignorado. Testes e arquivos SQL serão
+adicionados nas etapas próprias.
 
 ## Desenvolvimento por etapas
 
-1. Estrutura, configuração e documentação inicial — etapa atual.
-2. Especificação detalhada e implementação das camadas, em etapas a aprovar.
-3. Indicadores SQL, testes e documentação de execução, em etapas a aprovar.
+1. Estrutura, configuração e documentação inicial — preparada anteriormente.
+2. Ingestão RAW e validação — etapa atual, aguardando revisão.
+3. Refined, indicadores SQL e testes — etapas futuras, a aprovar.
 
 Cada etapa terá um commit separado após revisão. Não realizar commit ou push
 automaticamente. Consulte `docs/decisions.md` para o escopo aprovado e as
