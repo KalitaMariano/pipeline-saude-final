@@ -1,0 +1,45 @@
+# Dados: não publicar até confirmar origem e licença de redistribuição.
+/data/
+
+# Bancos e artefatos gerados.
+/artifacts/
+*.duckdb
+*.duckdb.*
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite-*
+*.sqlite3-*
+
+# Ambientes virtuais, caches e arquivos de build.
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.uv_cache/
+.cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+build/
+dist/
+*.egg-info/
+
+# Configurações locais e credenciais.
+.env
+.env.*
+!.env.example
+.aws/
+.codex/
+.agents/
+.idea/
+.vscode/
+.DS_Store
+
+# uv.lock deverá ser versionado quando gerado.

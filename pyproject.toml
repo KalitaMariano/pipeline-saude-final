@@ -1,0 +1,17 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pipeline-saude"
+version = "0.1.0"
+description = "Projeto final de Engenharia de Dados com dados sintéticos de saúde."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = ["duckdb>=1,<2"]
+
+[dependency-groups]
+dev = ["pytest>=8,<10"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pipeline_saude"]
