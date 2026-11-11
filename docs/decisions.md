@@ -175,3 +175,36 @@ testes, falhas auxiliares e documentação; sem alterar regras analíticas.
 
 As pendências históricas de rede/instalação nas seções anteriores descrevem
 as etapas respectivas e ficam superadas pelas validações desta etapa.
+
+## Etapa 6 — dashboard e extensões SQL aprovadas
+
+O usuário aprovou a SPEC Streamlit/Plotly e, após auditoria das colunas reais,
+a criação de marts.dashboard_kpis, medication_cost_proportion no indicador de
+medicamentos e a centralização do caminho padrão do banco. Também aprovou a
+leitura de seis MARTS, em vez das cinco inicialmente previstas.
+
+- Configuração compartilhada DATABASE_PATH em pipeline_saude.config, mantendo
+  artifacts/saude.duckdb e os argumentos --database da CLI.
+- KPIs em SQL sobre bases elegíveis já aprovadas: pacientes distintos com
+  atendimento clínico, atendimentos, atendimentos com medicamentos, proporção e
+  custos registrados de cada entidade, calculados separadamente.
+- Participação de medicamentos calculada por janela SQL antes da seleção visual
+  de dez códigos. Denominador é o custo válido de todos os códigos, não o top 10.
+- painel.py e app.py na raiz; sem agregações de negócio no Python, somente
+  seleção/ordenação/formatação. Filtro de ano exclusivo da evolução por classe;
+  custo de atendimento continua por ano/classe. Nenhuma regra de elegibilidade
+  alterada; RAW e REFINED preservadas.
+- st.cache_data armazena apenas DataFrames. Conexão read_only fechada em finally;
+  botão Recarregar dados invalida a leitura. Nenhum segundo banco é criado.
+- Custos sem prefixo de moeda. Especificação e limites em dashboard_spec.md.
+
+Dashboard local preparado para revisão; sem commit ou push automático.
+
+## Descrição dos medicamentos — aprovação na revisão da etapa 6
+
+Usuário aprovou medication_description na MARTS por código, concatenando no SQL
+as descrições distintas da base elegível originadas da REFINED, em ordem
+lexicográfica determinística e com separador ` | `. Nenhuma seleção arbitrária
+de descrição, normalização textual ou mudança de granularidade. Campo exibido
+nos tooltips dos dois gráficos; código mantido como identificador. Nenhuma
+agregação descritiva ou de negócio em Python, nem alteração de elegibilidade.

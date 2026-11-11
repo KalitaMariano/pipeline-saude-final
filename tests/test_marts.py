@@ -59,7 +59,7 @@ def test_clinical_exclusions_preserve_refined(connection, change):
     connection.execute(change)
     before = connection.execute('SELECT count(*) FROM refined.encounters').fetchone()
     assert transform_marts(connection)['eligible_encounters'] == 0
-    assert all(connection.execute(f'SELECT count(*) FROM marts.{t}').fetchone()[0] == 0 for t in TABLES)
+    assert all(connection.execute(f'SELECT count(*) FROM marts.{t}').fetchone()[0] == 0 for t in TABLES if t != 'dashboard_kpis')
     assert connection.execute('SELECT count(*) FROM refined.encounters').fetchone() == before
 
 
@@ -106,7 +106,7 @@ def test_empty_and_atomic_rollback(connection):
     for t in ('medications', 'encounters', 'patients'):
         connection.execute(f'DELETE FROM refined.{t}')
     assert transform_marts(connection)['eligible_encounters'] == 0
-    assert all(connection.execute(f'SELECT count(*) FROM marts.{t}').fetchone()[0] == 0 for t in TABLES)
+    assert all(connection.execute(f'SELECT count(*) FROM marts.{t}').fetchone()[0] == 0 for t in TABLES if t != 'dashboard_kpis')
 
 
 def test_medication_after_encounter_is_associated_and_flags_preserved(connection):
@@ -122,3 +122,42 @@ def test_medication_after_encounter_is_associated_and_flags_preserved(connection
     assert connection.execute("SELECT total_claim_cost FROM marts.encounter_costs_by_year_class").fetchone() == (Decimal('20.20'),)
     assert connection.execute("SELECT * EXCLUDE (START, STOP, _refined_at, _ingested_at) FROM refined.medications").fetchall() == before
     assert connection.execute("SELECT CAST(START AT TIME ZONE 'UTC' AS VARCHAR), STOP IS NULL FROM refined.medications").fetchone() == ('2020-01-02 00:00:00', True)
+
+
+def test_dashboard_kpis_distinct_patients_and_no_fanout(connection):
+    prepare(connection)
+    connection.execute("INSERT INTO refined.encounters SELECT * REPLACE ('e2' AS Id) FROM refined.encounters")
+    connection.execute("INSERT INTO refined.medications SELECT * REPLACE ('second' AS _medication_id, '00043' AS CODE) FROM refined.medications")
+    transform_marts(connection)
+    assert connection.execute('SELECT * FROM marts.dashboard_kpis').fetchone() == (1, 2, 1, .5, Decimal('40.40'), Decimal('5.00'))
+    assert connection.execute('SELECT medication_cost_proportion FROM marts.medication_costs_by_code ORDER BY medication_code').fetchall() == [(.5,), (.5,)]
+
+
+def test_global_kpis_empty_and_zero_denominators(connection):
+    prepare(connection)
+    connection.execute('UPDATE refined.medications SET BASE_COST=0,TOTALCOST=0,PAYER_COVERAGE=0')
+    transform_marts(connection)
+    assert connection.execute('SELECT medication_cost_proportion FROM marts.medication_costs_by_code').fetchone() == (None,)
+    connection.execute('DELETE FROM refined.encounters')
+    transform_marts(connection)
+    assert connection.execute('SELECT * FROM marts.dashboard_kpis').fetchone() == (0, 0, 0, None, None, None)
+
+
+def test_medication_descriptions_distinct_ordered_and_metrics_preserved(connection):
+    prepare(connection)
+    connection.execute("UPDATE refined.medications SET DESCRIPTION='Zeta'")
+    for mid, description in [('b','Alfa'), ('c','Zeta'), ('d',None)]:
+        connection.execute("INSERT INTO refined.medications SELECT * REPLACE (? AS _medication_id, ? AS DESCRIPTION) FROM refined.medications LIMIT 1", [mid, description])
+    transform_marts(connection)
+    assert connection.execute('SELECT medication_code, medication_description, medication_record_count, encounter_count, financial_record_count, dispenses, medication_total_cost, medication_payer_coverage, cost_per_dispense, medication_cost_proportion FROM marts.medication_costs_by_code').fetchone() == ('00042', 'Alfa | Zeta', 4, 1, 4, 8, Decimal('10.00'), Decimal('1.00'), 1.25, 1.0)
+    # A reexecução e a ordem física de entrada não mudam a descrição.
+    connection.execute('CREATE OR REPLACE TABLE refined.medications AS SELECT * FROM refined.medications ORDER BY _medication_id DESC')
+    transform_marts(connection)
+    assert connection.execute('SELECT medication_description FROM marts.medication_costs_by_code').fetchone() == ('Alfa | Zeta',)
+
+
+def test_medication_missing_description_does_not_remove_code_or_cost(connection):
+    prepare(connection)
+    connection.execute('UPDATE refined.medications SET DESCRIPTION=NULL')
+    transform_marts(connection)
+    assert connection.execute('SELECT medication_code, medication_description, medication_record_count, medication_total_cost, medication_cost_proportion FROM marts.medication_costs_by_code').fetchone() == ('00042', None, 1, Decimal('2.50'), 1.0)

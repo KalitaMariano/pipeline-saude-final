@@ -1,4 +1,4 @@
-"""Materialização atômica e idempotente dos cinco indicadores SQL."""
+"""Materialização atômica e idempotente dos indicadores SQL e KPIs globais."""
 from pathlib import Path
 
 import duckdb
@@ -6,7 +6,7 @@ import duckdb
 TABLES = (
     'encounters_by_year_class', 'emergency_by_age',
     'encounter_costs_by_year_class', 'medication_costs_by_code',
-    'encounters_with_medications',
+    'encounters_with_medications', 'dashboard_kpis',
 )
 
 
@@ -16,7 +16,7 @@ def sql_directory():
 
 
 def transform_marts(connection: duckdb.DuckDBPyConnection) -> dict:
-    """Substitui as cinco tabelas juntas; nunca modifica REFINED."""
+    """Substitui as seis tabelas juntas; nunca modifica REFINED."""
     connection.execute('BEGIN TRANSACTION')
     try:
         connection.execute('CREATE SCHEMA IF NOT EXISTS marts')

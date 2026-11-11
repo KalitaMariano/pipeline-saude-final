@@ -1,9 +1,9 @@
 # Pipeline de saúde — projeto final de Engenharia de Dados
 
 Pipeline Python, uv, DuckDB e SQL com camadas RAW → REFINED → MARTS no mesmo
-banco local. Etapas 1–4 publicadas com commits separados; etapa 5 revisa instalação
-e reprodutibilidade. Sem orquestrador ou dashboard. **39 testes unitários** usam
-somente dados fictícios e DuckDB em memória.
+banco local. Etapas 1–5 publicadas com commits separados; etapa 6 acrescenta dashboard
+Streamlit e Plotly. Sem orquestrador. Testes usam dados fictícios; testes de
+leitura do painel usam arquivos DuckDB temporários, sem acessar o banco real.
 
 ## Instalação e execução
 
@@ -177,5 +177,96 @@ medicamentos, 146 códigos, 39.152 dispensações, custo de medicamentos de
   permitidas pelo projeto não foram testadas. O backend de build continua
   declarado sem versão exata, como nas etapas anteriores.
 
-Etapa 5 preparada para revisão. Nenhum commit ou push automático; aguardar
+Etapa 6 preparada para revisão. Nenhum commit ou push automático; aguardar
 aprovação antes da publicação desta entrega.
+
+## Dashboard — Streamlit e Plotly
+
+Na raiz do checkout, após preparar os dados e executar as camadas:
+
+```bash
+uv sync --locked
+uv run pipeline-saude marts
+uv run streamlit run app.py
+```
+
+Acesse o endereço local informado pelo Streamlit (normalmente
+http://localhost:8501). `app.py` contém a interface wide; `painel.py`, leitura,
+formatação e seis funções de gráficos. O caminho padrão compartilhado com a CLI
+está em `src/pipeline_saude/config.py`: `artifacts/saude.duckdb`. Execute na raiz;
+o dashboard não cria banco e não roda o pipeline. Em caso de ausência, a tela
+orienta a execução das camadas. Execute MARTS novamente após atualizar o código
+para criar a tabela e a coluna novas.
+
+Seis cartões leem exclusivamente `marts.dashboard_kpis`, uma linha global SQL:
+pacientes distintos com atendimento clínico elegível, atendimentos clínicos,
+atendimentos com medicamentos, sua proporção, custo registrado dos atendimentos
+e custo registrado dos medicamentos. Na amostra local: 108 / 5.563 / 2.225 /
+39,9964% / 16.804.458,34 / 11.498.345,15. A interface arredonda percentuais a uma
+casa decimal; não assume moeda. O custo de cada entidade permanece separado.
+
+Os cinco indicadores originais geram seis gráficos: evolução por ano/classe,
+emergência por faixa, custos por ano/classe, top 10 medicamentos por custo,
+associação por classe/faixa e participação dos top 10 no custo de **todos** os
+medicamentos. A participação vem da nova coluna SQL medication_cost_proportion;
+não é recalculada para os dez códigos exibidos. Não há totais anuais ou históricos
+por classe calculados no Python. Linhas das seis MARTS locais:
+245 / 4 / 245 / 146 / 37 / 1 (dashboard_kpis).
+
+Evolução e custos dos atendimentos têm filtros de intervalo independentes,
+com ano inicial e final inclusivos. Cada um abre de 2000 até o último ano
+disponível na sua MARTS e permite consultar todo o histórico. Os filtros apenas
+selecionam linhas dos gráficos correspondentes; cartões e demais gráficos
+continuam mostrando todo o histórico. Custos por
+ano/classe usam linhas com legenda horizontal e hover unificado para facilitar
+a leitura, sem somar períodos. **Recarregar dados** invalida o cache de DataFrames e lê novamente
+o banco somente para leitura. A conexão é fechada após cada leitura, inclusive
+em erros, permitindo atualização pelo pipeline entre leituras. Durante uma escrita
+ativa, aguarde o pipeline concluir e recarregue. A tela não consulta RAW/REFINED.
+
+**105 testes aprovados** após a auditoria, incluindo testes adicionais de RAW,
+CLI e erros de schema.
+Contrato, limitações e validação: [docs/dashboard_spec.md](docs/dashboard_spec.md).
+As exclusões aprovadas, incluindo Death Certification e os medicamentos com início
+posterior ao atendimento, permanecem inalteradas. Testes: `uv run pytest -q`.
+
+
+Os gráficos de medicamentos mantêm o código como identificador e exibem
+`medication_description` no tooltip. O SQL concatena descrições distintas da
+REFINED em ordem determinística, mantendo uma linha por código e todos os
+indicadores existentes. Após atualizar, execute `uv run pipeline-saude marts`
+e clique em **Recarregar dados** para atualizar o cache do painel.
+
+
+## Auditoria de testes e cobertura
+
+O grupo de desenvolvimento inclui pytest-cov. A cobertura mínima total é **60%**
+e mede todo `src/pipeline_saude/` e `painel.py`. Exclui testes, `app.py`, ambientes
+virtuais e arquivos gerados. A interface continua com seus testes existentes;
+a avaliação visual é feita no navegador. Nenhum CSV ou banco real é necessário.
+
+```bash
+uv sync --locked
+uv run --locked pytest --cov --cov-report=term-missing
+```
+
+O pytest também ativa cobertura e relatório de linhas ausentes por padrão; falha
+se ficar abaixo do mínimo. Para investigar demora, use um subconjunto com
+`-vv --durations=10` e limite de duração, sem repetir a suíte completa em laço. `.coverage`, XML e HTML gerados são ignorados
+pelo Git. O pytest importa os módulos da raiz do checkout; o pacote src continua
+instalado por uv, sem configurar PYTHONPATH manualmente.
+
+A auditoria inclui testes próprios de RAW (preservação, recarga, validação e
+rollback com dependência real), CLI e erros de schema, além dos testes de
+REFINED/MARTS e painel. Todos usam dados fictícios em memória ou em arquivos
+temporários; não há mock do DuckDB, skip, xfail ou aproximação monetária.
+Resultados por arquivo, lacunas e reprodução em ambiente limpo:
+[docs/test_audit.md](docs/test_audit.md).
+
+
+Resultado final da auditoria: **105 testes passaram em 52,45 s**, com **98,97% de
+cobertura** (mínimo exigido: 60%). O teste Streamlit de cache/recarga foi reduzido
+a 2,35 s isolando a renderização repetida de figuras nos testes de interface;
+os seis gráficos reais continuam cobertos pelos testes específicos. Produção,
+SQLs e regras analíticas não foram modificados. A validação final foi executada
+uma única vez após essa correção, conforme orientação do usuário.

@@ -1,8 +1,8 @@
 # Contrato MARTS — etapa 4
 
-Snapshot analítico no schema `marts`, consumindo exclusivamente REFINED. Cinco
-arquivos SQL materializam cinco tabelas; `_base.sql` define duas views temporárias
-compartilhadas, removidas ao concluir. Não há dashboard ou alterações na REFINED.
+Snapshot analítico no schema `marts`, consumindo exclusivamente REFINED. Seis
+arquivos SQL materializam seis tabelas; `_base.sql` define duas views temporárias
+compartilhadas, removidas ao concluir. A etapa 6 acrescenta dashboard consumidor, sem alterações na REFINED.
 As regras de exclusão abaixo incorporam a revisão aprovada pelo usuário na etapa 4.
 
 ## População e qualidade
@@ -74,9 +74,32 @@ TOTAL_CLAIM_COST sem documentação da origem.
 ## Operação
 
 `uv run pipeline-saude marts --database artifacts/saude.duckdb` exige banco e
-REFINED existentes. Uma transação substitui as cinco tabelas por CREATE OR
+REFINED existentes. Uma transação substitui as seis tabelas por CREATE OR
 REPLACE; erro desfaz a etapa inteira. A saída JSON informa contagens de linhas
 elegíveis e das tabelas. Uma recarga com a mesma REFINED produz o mesmo conteúdo.
 Os SQLs também são incluídos no wheel. Testes: `uv run pytest -q`, exclusivamente
 com dados fictícios e DuckDB em memória. Validação real separada em
 [marts_validation.md](marts_validation.md).
+
+## Extensões aprovadas para o dashboard — etapa 6
+
+Adicionadas uma tabela `dashboard_kpis` (uma linha global para todo o histórico)
+e a coluna `medication_cost_proportion DOUBLE` em `medication_costs_by_code`.
+As definições completas e os tipos estão em [dashboard_spec.md](dashboard_spec.md).
+KPIs: pacientes distintos com atendimento elegível, atendimentos clínicos,
+atendimentos com medicamentos, sua proporção, custo válido de atendimentos e
+custo válido de medicamentos. Custos calculados separadamente, com os mesmos
+filtros financeiros já aprovados. Participação = custo do código / custo de todos
+os códigos, calculada no SQL antes de qualquer top 10 visual. Denominadores zero
+retornam NULL. Nenhuma regra de elegibilidade alterada.
+
+## Descrições de medicamentos — extensão aprovada
+
+A tabela medication_costs_by_code inclui medication_description VARCHAR,
+calculada exclusivamente em SQL por `string_agg(DISTINCT DESCRIPTION, ' | '
+ORDER BY DESCRIPTION)`, sobre as linhas da base elegível marts_medications,
+com DESCRIPTION proveniente da REFINED. Uma linha por código, com descrições
+distintas ordenadas e concatenadas; todas nulas produzem NULL. Não se aplica
+normalização textual. Coluna descritiva adicional, sem mudança nas contagens,
+valores financeiros, dispensações ou denominadores. Código continua sendo a
+chave da agregação e o identificador dos gráficos.

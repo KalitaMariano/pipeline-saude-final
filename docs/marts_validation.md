@@ -65,3 +65,28 @@ A validação comparou contagens e fingerprints de todas as colunas das seis
 tabelas RAW/REFINED antes da primeira execução corrigida e após duas execuções.
 Também verificou a presença dos 65 alertas temporais na base elegível, a ausência
 de Death Certification na base clínica e todos os totais esperados por asserções.
+
+## Extensões aprovadas na etapa 6
+
+Acrescentados dashboard_kpis (uma linha global) e medication_cost_proportion no
+indicador por código, sem mudar populações ou totais anteriores. Seis tabelas:
+245 / 4 / 245 / 146 / 37 / 1 linhas. KPIs locais: 108 pacientes distintos,
+5.563 atendimentos, 2.225 associados, fração 0,3999640481754449, custo de
+atendimentos 16.804.458,34 e de medicamentos 11.498.345,15. Permanecem 39.152
+dispensações. Duas execuções idênticas e RAW/REFINED com fingerprints inalterados.
+A suíte ampliada tem 64 testes aprovados; detalhes em dashboard_spec.md.
+
+## Descrições aprovadas — validação adicional
+
+medication_description acrescentada por string_agg DISTINCT ordenado no SQL,
+sem modificar regras ou dados REFINED. Comparação integral de todas as colunas
+anteriores, ordenadas por código, confirmou igualdade antes/depois. As outras
+cinco MARTS também permaneceram idênticas. Duas execuções confirmaram idempotência;
+contagens/fingerprints de todas as tabelas RAW/REFINED permaneceram iguais.
+
+Totais: 146 linhas e 146 códigos distintos, 3.850 registros de medicamentos,
+39.152 dispensações, custo 11.498.345,15, cobertura 267.940,02. Participações
+somam 1 dentro de tolerância de ponto flutuante (1,0000000000000007).
+Os códigos 1000126 e 856987 preservam duas descrições distintas cada, incluindo
+as diferenças de capitalização; não houve normalização textual.
+Script pontual separado dos testes: /tmp/validate_medication_descriptions.py.

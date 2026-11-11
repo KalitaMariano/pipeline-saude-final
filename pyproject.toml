@@ -8,19 +8,35 @@ version = "0.1.0"
 description = "Projeto final de Engenharia de Dados com dados sintéticos de saúde."
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = ["duckdb>=1,<2"]
+dependencies = ["duckdb>=1,<2", "streamlit>=1.50,<2", "plotly>=6,<8", "pandas>=2.2,<3"]
 
 [project.scripts]
 pipeline-saude = "pipeline_saude.cli:main"
 
 [dependency-groups]
-dev = ["pytest>=8,<10"]
+dev = [
+    "pytest>=8,<10",
+    "pytest-cov>=7.1.0",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pipeline_saude"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "--cov --cov-report=term-missing"
 
 [tool.hatch.build.targets.wheel.force-include]
 "sql/marts" = "pipeline_saude/sql/marts"
+"painel.py" = "painel.py"
+"app.py" = "app.py"
+
+[tool.coverage.run]
+source = ["src/pipeline_saude", "painel"]
+omit = ["tests/*", "app.py", ".venv/*", "venv/*", "env/*", "artifacts/*", "build/*", "dist/*"]
+
+[tool.coverage.report]
+fail_under = 60
+show_missing = true
+precision = 2

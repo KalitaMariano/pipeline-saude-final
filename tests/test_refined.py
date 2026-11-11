@@ -135,3 +135,19 @@ def test_empty_snapshot_replaces_old_snapshot(connection):
         connection.execute(f'DELETE FROM raw.{table}')
     report = transform_refined(connection)
     assert all(r['expected'] == r['obtained'] == 0 and not r['quality_flags'] for r in report.values())
+
+
+@pytest.mark.parametrize('change,message',[
+    ('ALTER TABLE raw.patients DROP COLUMN BIRTHDATE','colunas obrigatórias'),
+    ('ALTER TABLE raw.patients ADD COLUMN _quality_flags VARCHAR','conflito'),
+    ('ALTER TABLE raw.patients ALTER COLUMN INCOME TYPE BIGINT','esperado VARCHAR'),
+])
+def test_refined_invalid_raw_schema_rolls_back_previous_snapshot(connection,change,message):
+    transform_refined(connection)
+    previous={table:connection.execute(f'SELECT to_json(r) FROM refined.{table} r').fetchall()
+              for table in ('patients','encounters','medications')}
+    connection.execute(change)
+    with pytest.raises(ValueError,match=message):
+        transform_refined(connection)
+    assert previous=={table:connection.execute(f'SELECT to_json(r) FROM refined.{table} r').fetchall()
+                     for table in previous}

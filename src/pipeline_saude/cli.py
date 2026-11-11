@@ -8,6 +8,7 @@ from pathlib import Path
 
 import duckdb
 
+from pipeline_saude.config import DATABASE_PATH
 from pipeline_saude.raw.ingest import ingest_raw
 from pipeline_saude.refined.transform import run_refined
 from pipeline_saude.marts.transform import run_marts
@@ -19,12 +20,12 @@ def main() -> int:
     raw = commands.add_parser("raw", help="Ingerir os três CSVs no schema raw")
     raw.add_argument("--data-dir", type=Path, default=Path("data"),
                      help="Pasta dos CSVs (padrão: data)")
-    raw.add_argument("--database", type=Path, default=Path("artifacts/saude.duckdb"),
+    raw.add_argument("--database", type=Path, default=DATABASE_PATH,
                      help="Banco de destino (padrão: artifacts/saude.duckdb)")
     refined = commands.add_parser("refined", help="Transformar RAW em REFINED")
-    refined.add_argument("--database", type=Path, default=Path("artifacts/saude.duckdb"))
+    refined.add_argument("--database", type=Path, default=DATABASE_PATH)
     marts = commands.add_parser("marts", help="Materializar indicadores analíticos")
-    marts.add_argument("--database", type=Path, default=Path("artifacts/saude.duckdb"))
+    marts.add_argument("--database", type=Path, default=DATABASE_PATH)
     args = parser.parse_args()
     try:
         if args.command == "raw":
