@@ -349,3 +349,14 @@ Resultados por arquivo, lacunas e reprodução em ambiente limpo:
 - A instalação foi validada em Linux/Python 3.12; outras plataformas e versões
   permitidas pelo projeto não foram testadas. O backend de build continua
   declarado sem versão exata, como nas etapas anteriores.
+
+## Uso da IA: erros identificados e validações
+
+Usei a IA como apoio ao desenvolvimento e verifiquei suas sugestões com testes
+automatizados, conferência das contagens e análise dos resultados. Dois exemplos:
+
+- Nos testes do dashboard, identifiquei pelo pytest que um teste do Streamlit
+  ultrapassou o tempo permitido. Corrigi o problema antes da validação final.
+- Na auditoria de cobertura, identifiquei que o relatório considerava uma cópia
+  de `painel.py` no ambiente virtual, em vez do arquivo do projeto. Revisei a
+  configuração e validei novamente a cobertura com o arquivo correto.
