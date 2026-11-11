@@ -46,18 +46,18 @@ curso e escolhas iniciais de configuração sujeitas à revisão da etapa 1.
 | Versão e parâmetros do Synthea | Não disponíveis nos três CSVs analisados | Confirmar versão, data, população, filtros e parâmetros disponíveis |
 | Licença dos dados e redistribuição | Ainda não confirmadas para estes arquivos | Validar licença e atribuições antes de adicionar dados ao Git |
 | Licença do código do projeto | Não escolhida | Definir separadamente da licença dos dados antes da publicação |
-| Organização e regras de marts | RAW e REFINED usam schemas separados no mesmo banco local | Especificar marts antes da implementação |
+| Organização e regras de marts | Contrato da etapa 4 em marts_spec.md | Revisar escolhas da entrega |
 | Identidade clínica entre versões | A identidade técnica de medicamentos usa arquivo/hash/posição e muda com a versão do arquivo | Avaliar outra chave somente se houver necessidade de histórico entre versões |
-| Tratamento analítico de ausências e anomalias | REFINED preserva registros e sinaliza; não imputa nem corrige | Decidir filtros ou tratamentos apenas nos indicadores aprovados |
-| Registros administrativos | Sete atendimentos após o óbito são `Death Certification` | Decidir inclusão nos indicadores clínicos |
-| Indicadores, faixas etárias e período | Cinco perguntas sugeridas no diagnóstico; ainda não aprovadas explicitamente | Aprovar fórmulas, granularidades, filtros e denominadores |
+| Tratamento analítico de ausências e anomalias | Filtros por finalidade documentados em marts_spec.md | Revisar entrega da etapa 4 |
+| Registros administrativos | MARTS exclui oito Death Certification, sete após óbito | Exclusão administrativa aprovada na revisão da etapa 4 |
+| Indicadores, faixas etárias e período | Cinco indicadores autorizados na etapa 4; fórmulas em marts_spec.md | Revisar concretização das regras |
 | Semântica financeira e moeda | Custo total de medicamentos é custo base × dispensações em todas as linhas | Consultar a documentação da versão e evitar dupla contagem |
 | Sincronização completa e lockfile | PyPI indisponível; cache permitiu instalar DuckDB, mas não resolver todo o projeto | Executar `uv sync` com conectividade e versionar o `uv.lock` |
 
 As cinco perguntas propostas abrangem evolução dos atendimentos, utilização de
 emergência por idade, custos e cobertura por classe, concentração de custos de
-medicamentos e proporção de atendimentos com medicamentos. Não há indicadores
-implementados nem fórmulas aprovadas neste momento.
+medicamentos e proporção de atendimentos com medicamentos. Na etapa 4, os cinco indicadores foram autorizados e implementados; fórmulas
+e filtros concretizados estão documentados em marts_spec.md para revisão.
 
 ## Decisões de implementação da RAW — etapa 2
 
@@ -112,3 +112,42 @@ contrato `refined_spec.md`, para revisão desta entrega:
 
 A instalação de pytest 9.1.1 usou cache local. Sincronização completa e lockfile
 permanecem pendentes; não houve nova consulta à origem ou à licença dos dados.
+
+## Decisões de implementação MARTS — etapa 4
+
+O usuário autorizou os cinco indicadores, testes em memória, SQL separado,
+validação local e documentação. Dashboard, commit e push não foram autorizados.
+Contrato: [marts_spec.md](marts_spec.md); evidências: [marts_validation.md](marts_validation.md).
+
+- Cinco tabelas substituídas atomicamente no schema marts; REFINED preservada.
+- Faixas 0–17, 18–44, 45–64, 65+, idade completa no início em UTC; todos os anos.
+- Excluir chaves ambíguas e vínculos/datas inválidos da população clínica;
+  excluir Death Certification pela descrição exata, mesmo sem flag temporal.
+- Qualidade financeira afeta apenas somas e denominadores financeiros; não
+  excluir por geografia ou ausência de motivo. Medicamentos de duração zero
+  e término ausente são aceitos, sem inferir uso atual.
+- Emergência / atendimentos observados na faixa; associação / atendimentos
+  elegíveis do grupo. Nenhuma taxa populacional ou inferência causal.
+- Base única de atendimentos e medicamentos agregados/deduplicados por vínculo
+  antes do JOIN de associação impedem multiplicação. Nenhuma deduplicação clínica.
+- Custos de atendimentos e medicamentos separados; moeda e escopo financeiro
+  da origem permanecem pendentes. TOTALCOST não é multiplicado novamente.
+
+São escolhas explícitas de implementação para revisão, não alegações de aprovação
+prévia de fórmulas que os documentos anteriores ainda deixavam pendentes.
+
+## Revisão aprovada das exclusões MARTS — etapa 4
+
+O usuário aprovou manter os oito Death Certification fora da população de
+atendimentos clínicos (indicadores 1, 2, 3 e denominador do 5). O indicador 4
+mantém o vínculo a atendimento clínico elegível; esses oito não têm medicamentos.
+
+A exclusão dos 65 medicamentos iniciados após o término do atendimento foi
+revogada: os indicadores 4 e 5 usam o vínculo ENCOUNTER/PATIENT, sem exigir
+início até o término do atendimento. A flag start_after_encounter é preservada
+na REFINED; não se alteram RAW, REFINED ou seus alertas. Os demais critérios,
+incluindo rejeição de início anterior ao atendimento, permanecem inalterados.
+
+Resultado: 3.850 medicamentos, 146 códigos, 39.152 dispensações, custo de
+11.498.345,15 e 2.225 atendimentos com medicamentos; 5.563 atendimentos clínicos.
+Esta decisão substitui a exclusão temporal posterior da entrega inicial.

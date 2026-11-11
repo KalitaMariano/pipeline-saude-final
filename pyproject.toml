@@ -22,3 +22,6 @@ packages = ["src/pipeline_saude"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"sql/marts" = "pipeline_saude/sql/marts"

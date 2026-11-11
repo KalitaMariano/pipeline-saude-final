@@ -100,3 +100,55 @@ permanece registrada. Script de validação real em `/tmp`, relatório JSON em
 **Entrega:** somente arquivos da REFINED, CLI, testes e documentação/configuração
 relacionados. Nenhum staging, commit ou push. Licença dos CSVs ainda pendente;
 dados e bancos continuam ignorados pelo Git.
+
+## 10/11/2026 — etapa 4: MARTS
+
+**Escopo:** cinco indicadores, SQL separado, comando CLI, materialização atômica,
+testes fictícios em memória, validação real e documentação. Sem dashboard,
+staging, commit ou push.
+
+**Escolhas:** os documentos anteriores não fixavam fórmulas ou exclusões.
+A IA concretizou e documentou as regras em marts_spec.md e decisions.md:
+idade completa em UTC, faixas, populações por finalidade, exclusão administrativa
+de Death Certification, chaves únicas antes dos JOINs e separação dos custos.
+Alertas geográficos e financeiros não removem indiscriminadamente utilização.
+
+**Validação:** 38 testes passaram (21 casos MARTS e 17 REFINED). Na base local,
+5.563 atendimentos e 3.785 medicamentos elegíveis; oito registros administrativos
+e 65 medicamentos iniciados após o atendimento ficaram fora da análise.
+Duas execuções comparadas integralmente; RAW/REFINED com contagens e fingerprints
+inalterados; custos reconciliados com as bases elegíveis. Resultados em
+marts_validation.md. Nenhum teste unitário usa o banco real.
+
+**Erro e correção:** o script pontual de validação tentou `row(t.*)` dentro de
+hash, expansão não aceita pelo DuckDB. Ajustado para `hash(t)` e reexecutado com
+sucesso. Não houve falha nos testes ou alteração dos dados de origem.
+
+**Limitações:** procedência, licença, moeda e escopo financeiro continuam sem
+confirmação externa. Não houve consulta externa; esta etapa implementa o contrato
+local. Ambiente e lockfile mantêm as pendências anteriores.
+
+## 10/11/2026 — revisão aprovada das regras MARTS
+
+**Autorização:** manter os oito Death Certification fora da população clínica;
+incluir os 65 medicamentos com início posterior ao atendimento nos indicadores
+4 e 5; preservar RAW, REFINED e flags; atualizar SQL, testes e documentação.
+
+**Correção:** removido somente o limite superior de início do medicamento na
+base compartilhada dos indicadores 4 e 5. O limite inferior e os demais critérios
+continuam iguais. O vínculo ENCOUNTER/PATIENT não exige início até o término do
+atendimento. A exclusão anterior era excessiva para as perguntas aprovadas.
+
+**Testes:** 39 aprovados (22 MARTS e 17 REFINED), em 24,25 s. Novo teste gera a
+flag start_after_encounter pela transformação REFINED a partir de origem fictícia
+e confirma inclusão em custos/dispensações e associação, sem alteração da flag
+ou dos dados e sem multiplicar custos de atendimento.
+
+**Dados locais:** 5.563 atendimentos clínicos; 3.850 medicamentos; 146 códigos;
+39.152 dispensações; custos de medicamentos de 11.498.345,15; 2.225 atendimentos
+com medicamentos. Duas execuções iguais, totais reconciliados e contagens e
+fingerprints de RAW/REFINED inalterados, incluindo os 65 alertas temporais.
+Relatório atualizado em artifacts/marts_validation.json (ignorado).
+
+**Entrega:** oito arquivos de SQL/teste/documentação ajustados nesta revisão;
+nenhuma alteração no código ou nos dados RAW/REFINED, sem commit ou push.
