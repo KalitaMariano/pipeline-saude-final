@@ -7,15 +7,15 @@ com as camadas raw, refined e marts. O projeto segue spec-driven development:
 documentar requisitos e decisões antes de implementar, avançando por etapas
 revisadas e com um commit separado para cada etapa.
 
-**Etapa 2:** ingestão RAW implementada. O banco local contém somente as três
-tabelas do schema `raw`. Refined, marts, dashboard e suíte de testes ainda não
-foram implementados.
+**Etapa 3:** RAW e REFINED implementadas. O banco local contém três tabelas
+em cada um desses schemas. Os testes unitários usam apenas dados fictícios
+em memória. Marts e dashboard ainda não foram implementados.
 
 ## Tecnologias
 
 - Python 3.12 ou superior e uv para gerenciar o projeto e as dependências.
 - DuckDB e SQL para armazenamento e análise.
-- pytest previsto para testes com dados fictícios, sem acessar o banco persistido.
+- pytest para testes com dados fictícios, sem acessar o banco persistido.
 - Sem orquestrador.
 
 As dependências estão declaradas em `pyproject.toml`. Em um ambiente com acesso
@@ -24,25 +24,38 @@ ao PyPI, execute a partir da raiz do projeto:
 ```bash
 uv sync
 uv run pipeline-saude raw
+uv run pipeline-saude refined
+uv run pytest -q
 ```
 
 O comando lê `data/` e grava `artifacts/saude.duckdb`. Para escolher os caminhos:
 
 ```bash
 uv run pipeline-saude raw --data-dir data --database artifacts/saude.duckdb
+uv run pipeline-saude refined --database artifacts/saude.duckdb
 uv run pipeline-saude raw --help
+uv run pipeline-saude refined --help
 ```
 
 Também é possível executar o módulo após instalar o projeto:
 `uv run python -m pipeline_saude.cli raw`.
 A saída JSON informa banco, lote, instante, hashes e contagens esperadas/obtidas.
-Falhas retornam código de saída 1 e mensagem no stderr.
+Na REFINED, a saída informa banco, contagens e ocorrências de cada flag.
+Falhas retornam código de saída 1 e mensagem no stderr. A REFINED requer um
+banco existente com as três tabelas RAW e não executa a ingestão automaticamente.
 
-Nesta sessão, o PyPI estava inacessível. Foi possível instalar apenas DuckDB
-1.5.6 a partir do cache local e validar com
-`PYTHONPATH=src .venv/bin/python -m pipeline_saude.cli raw`.
+O PyPI estava inacessível na etapa RAW. DuckDB 1.5.6 e, na etapa REFINED,
+pytest 9.1.1 foram instalados do cache local. Comandos validados nesse ambiente:
+
+```bash
+PYTHONPATH=src .venv/bin/python -m pipeline_saude.cli raw
+PYTHONPATH=src .venv/bin/python -m pipeline_saude.cli refined
+.venv/bin/python -m pytest -q
+```
+
 A sincronização completa e a geração do `uv.lock` continuam pendentes; quando
-gerado, o lockfile deverá ser versionado. Não há suíte de testes executável ainda.
+gerado, o lockfile deverá ser versionado. O entry point instalado por `uv sync`
+ainda precisa ser validado; a CLI como módulo Python foi validada.
 
 ## Dados disponíveis
 
@@ -103,8 +116,21 @@ linhas e sem deduplicar a origem. Não mantém versões antigas no banco.
 Consulte o contrato completo em [docs/raw_spec.md](docs/raw_spec.md) e a
 validação em [docs/raw_validation.md](docs/raw_validation.md).
 
-Refined será destinada à tipagem e qualidade; marts, aos indicadores SQL, cada
-um em seu próprio arquivo. As regras dessas etapas continuam pendentes.
+A REFINED converte datas, timestamps em instantes UTC, moedas em `DECIMAL(18,2)`,
+renda e dispensações em inteiros e coordenadas em `DOUBLE`. Identificadores,
+códigos e CEPs continuam textos; campos vazios tornam-se nulos. Registros não
+são excluídos nem deduplicados. `_quality_flags` sinaliza chaves, relacionamentos
+e anomalias; `_medication_id` rastreia medicamentos por arquivo, hash e posição.
+Valores preenchidos incompatíveis com os tipos interrompem a transação inteira,
+sem transformar erros em nulos silenciosamente. A recarga substitui as três
+tabelas sem acúmulo.
+
+Contrato: [docs/refined_spec.md](docs/refined_spec.md).
+Resultados: [docs/refined_validation.md](docs/refined_validation.md).
+A validação local manteve **108 pacientes, 5.571 atendimentos e 3.850
+medicamentos** nas duas execuções. **17 testes unitários aprovados**.
+Marts será destinada aos indicadores SQL, cada um em seu próprio arquivo;
+suas regras e fórmulas continuam pendentes.
 
 ```text
 pipeline-saude-final/
@@ -113,15 +139,22 @@ pipeline-saude-final/
 │   ├── decisions.md            # Decisões aprovadas e questões pendentes
 │   ├── ai_log.md               # Uso da IA, limitações e correções
 │   ├── raw_spec.md             # Contrato de ingestão
-│   └── raw_validation.md       # Resultados da validação
+│   ├── raw_validation.md       # Resultados da RAW
+│   ├── refined_spec.md         # Tipos, identidade e qualidade
+│   └── refined_validation.md   # Resultados da REFINED
 ├── src/pipeline_saude/
 │   ├── __init__.py
-│   ├── cli.py                  # Comando raw
+│   ├── cli.py                  # Comandos raw e refined
 │   ├── raw/
 │   │   ├── __init__.py
 │   │   └── ingest.py           # Leitura e carga transacional
-│   ├── refined/                # Apenas reserva de diretório
+│   ├── refined/
+│   │   ├── __init__.py
+│   │   └── transform.py        # Tipagem e qualidade transacionais
 │   └── marts/                  # Apenas reserva de diretório
+├── tests/
+│   ├── conftest.py             # Dados fictícios e conexão em memória
+│   └── test_refined.py
 ├── sql/marts/                  # Apenas reserva de diretório
 ├── .gitignore
 ├── pyproject.toml
@@ -129,14 +162,15 @@ pipeline-saude-final/
 ```
 
 Os arquivos `.gitkeep` preservam diretórios vazios no Git. O diretório
-`artifacts/` contém o banco local e está ignorado. Testes e arquivos SQL serão
-adicionados nas etapas próprias.
+`artifacts/` contém o banco local e relatórios gerados e está ignorado.
+Arquivos SQL dos indicadores serão adicionados na etapa de marts.
 
 ## Desenvolvimento por etapas
 
 1. Estrutura, configuração e documentação inicial — preparada anteriormente.
-2. Ingestão RAW e validação — etapa atual, aguardando revisão.
-3. Refined, indicadores SQL e testes — etapas futuras, a aprovar.
+2. Ingestão RAW e validação — preparada anteriormente.
+3. REFINED, testes unitários e validação — etapa atual, aguardando revisão.
+4. Indicadores SQL e marts — etapa futura, a aprovar.
 
 Cada etapa terá um commit separado após revisão. Não realizar commit ou push
 automaticamente. Consulte `docs/decisions.md` para o escopo aprovado e as

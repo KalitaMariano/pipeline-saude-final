@@ -15,6 +15,7 @@ curso e escolhas iniciais de configuração sujeitas à revisão da etapa 1.
 | Não versionar os CSVs antes de confirmar a licença | `data/` integralmente ignorado pelo Git |
 | Não fazer commit nem push automaticamente | Aguardar aprovação do usuário |
 | Etapa 2: implementar somente ingestão RAW | Autorizada na solicitação seguinte; validar conteúdo e recarga, sem refined, marts ou dashboard |
+| Etapa 3: implementar somente REFINED e testes unitários | Autorizada; tipagem, rastreabilidade, qualidade e recarga, sem marts ou dashboard |
 
 ## Requisitos do curso registrados
 
@@ -45,10 +46,9 @@ curso e escolhas iniciais de configuração sujeitas à revisão da etapa 1.
 | Versão e parâmetros do Synthea | Não disponíveis nos três CSVs analisados | Confirmar versão, data, população, filtros e parâmetros disponíveis |
 | Licença dos dados e redistribuição | Ainda não confirmadas para estes arquivos | Validar licença e atribuições antes de adicionar dados ao Git |
 | Licença do código do projeto | Não escolhida | Definir separadamente da licença dos dados antes da publicação |
-| Organização física das camadas futuras | Etapa 2 autorizou ingestão no schema raw; apenas ele é criado no banco local | Confirmar detalhes de refined e marts nas respectivas etapas |
-| Regras finais de refined e marts | O contrato RAW está em `raw_spec.md`; regras das outras camadas permanecem pendentes | Especificar critérios de aceitação antes de implementar |
-| Identificador de medicamentos em refined | RAW usa arquivo, hash e posição para rastrear registros sem `Id` | Definir eventual chave de negócio na etapa refined |
-| Ausências e anomalias | 268 términos de medicamento ausentes; 29 ZIP `00000`; outros achados no README | Aprovar sinalização, preservação e eventual tratamento |
+| Organização e regras de marts | RAW e REFINED usam schemas separados no mesmo banco local | Especificar marts antes da implementação |
+| Identidade clínica entre versões | A identidade técnica de medicamentos usa arquivo/hash/posição e muda com a versão do arquivo | Avaliar outra chave somente se houver necessidade de histórico entre versões |
+| Tratamento analítico de ausências e anomalias | REFINED preserva registros e sinaliza; não imputa nem corrige | Decidir filtros ou tratamentos apenas nos indicadores aprovados |
 | Registros administrativos | Sete atendimentos após o óbito são `Death Certification` | Decidir inclusão nos indicadores clínicos |
 | Indicadores, faixas etárias e período | Cinco perguntas sugeridas no diagnóstico; ainda não aprovadas explicitamente | Aprovar fórmulas, granularidades, filtros e denominadores |
 | Semântica financeira e moeda | Custo total de medicamentos é custo base × dispensações em todas as linhas | Consultar a documentação da versão e evitar dupla contagem |
@@ -80,3 +80,35 @@ revisão da entrega:
 Na etapa 2, o Git já reconhece o repositório e o commit da estrutura inicial
 (`3ffc687`). A limitação de metadados Git registrada na etapa 1 está resolvida.
 Nenhum staging, commit ou push foi realizado pela IA nesta etapa.
+
+## Decisões de implementação REFINED — etapa 3
+
+O usuário autorizou conversões de tipo, preservação de linhas e nulos legítimos,
+identificação técnica de medicamentos, verificações de qualidade, recarga,
+testes em memória e validação das contagens reais. Escolhas concretizadas no
+contrato `refined_spec.md`, para revisão desta entrega:
+
+- Schema `refined` no mesmo banco; transformação consome exclusivamente RAW.
+- Substituição integral das três tabelas em uma transação. Contagens devem
+  corresponder à RAW; os números do dataset não ficam fixos no código.
+- String vazia vira `NULL`; textos com espaços não são limpos automaticamente.
+  Identificadores, documentos, códigos clínicos, FIPS e CEP permanecem textos.
+- Datas `DATE`; timestamps com fuso explícito `TIMESTAMPTZ`, com comparações de
+  datas em UTC; moedas `DECIMAL(18,2)`; renda e dispensações `BIGINT`;
+  coordenadas `DOUBLE` finito. Valores incompatíveis abortam com rollback,
+  inclusive quando o cast poderia arredondar silenciosamente.
+- Linhagem RAW preservada e `_refined_at` acrescentado. `_medication_id` é
+  SHA-256 da lista JSON de arquivo/hash/posição; estável para a mesma origem,
+  distinto entre posições, sem pretensão de identidade clínica entre versões.
+- `_quality_flags` é uma lista por registro. Chaves ausentes/repetidas,
+  relacionamentos e anomalias são sinalizados sem rejeitar as linhas.
+  Linhagem de medicamento ambígua aborta, pois inviabiliza sua identificação.
+- `Death Certification` é mantido e sinalizado temporalmente; término nulo de
+  medicamento e motivo completamente ausente não são classificados como erro.
+- Nenhuma normalização de descrições, remoção de outliers ou interpretação
+  financeira adicional. Nenhum objeto de marts criado.
+- Testes pytest exclusivamente com dados fictícios e DuckDB em memória.
+  Validação local separada confirmou as contagens e a recarga das três tabelas.
+
+A instalação de pytest 9.1.1 usou cache local. Sincronização completa e lockfile
+permanecem pendentes; não houve nova consulta à origem ou à licença dos dados.

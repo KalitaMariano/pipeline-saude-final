@@ -9,6 +9,7 @@ from pathlib import Path
 import duckdb
 
 from pipeline_saude.raw.ingest import ingest_raw
+from pipeline_saude.refined.transform import run_refined
 
 
 def main() -> int:
@@ -19,11 +20,16 @@ def main() -> int:
                      help="Pasta dos CSVs (padrão: data)")
     raw.add_argument("--database", type=Path, default=Path("artifacts/saude.duckdb"),
                      help="Banco de destino (padrão: artifacts/saude.duckdb)")
+    refined = commands.add_parser("refined", help="Transformar RAW em REFINED")
+    refined.add_argument("--database", type=Path, default=Path("artifacts/saude.duckdb"))
     args = parser.parse_args()
     try:
-        result = ingest_raw(args.data_dir, args.database)
+        if args.command == "raw":
+            result = ingest_raw(args.data_dir, args.database)
+        else:
+            result = run_refined(args.database)
     except (OSError, ValueError, csv.Error, duckdb.Error, RuntimeError) as error:
-        print(f"Falha na ingestão raw: {error}", file=sys.stderr)
+        print(f"Falha na etapa {args.command}: {error}", file=sys.stderr)
         return 1
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0

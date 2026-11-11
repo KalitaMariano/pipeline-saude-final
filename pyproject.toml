@@ -18,3 +18,7 @@ dev = ["pytest>=8,<10"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pipeline_saude"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

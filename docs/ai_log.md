@@ -62,3 +62,41 @@ foi adicionada nesta etapa.
 **Git:** o repositório agora está disponível e contém o commit `3ffc687` da
 estrutura inicial. Os dados e o banco permanecem ignorados. A IA não realizou
 staging, commit ou push.
+
+## 10/11/2026 — etapa 3: REFINED
+
+**Autorização e escopo:** transformação das três tabelas RAW para REFINED,
+tipagem, nulos, identificação técnica dos medicamentos, sinalização de qualidade,
+recarga e testes unitários com dados fictícios em memória. Não implementar
+marts nem dashboard; preservar CSVs e não fazer commit ou push.
+
+**Decisões da IA para revisão:** contrato em `refined_spec.md`, com moedas
+DECIMAL(18,2), inteiros BIGINT, timestamps com fuso explícito, vazios como nulos,
+sem trim. Valores incompatíveis abortam toda a transação. Identificador de
+medicamentos deriva da origem, sem deduplicação clínica. Verificações por EXISTS
+evitam multiplicar linhas em relacionamentos com pais duplicados. Alertas
+ficam em uma lista por registro, sem remover registros administrativos ou
+medicamentos de duração zero. Decisões e pendências em `decisions.md`.
+
+**Validações:** 17 testes pytest com conexão exclusivamente em memória e dados
+fictícios; nenhuma leitura de CSV real ou banco persistido pelos testes. Na
+validação local separada, duas execuções mantiveram contagens, conteúdo tipado,
+identificadores e flags. Comparação da RAW e hashes dos CSVs confirmou que não
+foram alterados. Resultados completos em `refined_validation.md`.
+
+**Erros e correções:** nenhum teste falhou nesta etapa. Na revisão dos testes,
+uma asserção que consultava o próprio ID como valor esperado foi substituída
+por verificações independentes de contagem, valor monetário e mudança do ID
+quando o hash da origem muda. Um patch da documentação falhou por contexto
+inexato; o contexto foi conferido e o patch reaplicado. Nenhum registro foi
+corrigido ou descartado.
+
+**Ambiente:** pytest 9.1.1 e dependências instalados do cache em `/tmp`; DuckDB
+1.5.6 já disponível. Comandos executados pelo módulo Python e pelo pytest do
+ambiente local. A pendência de sincronização completa e lockfile da etapa RAW
+permanece registrada. Script de validação real em `/tmp`, relatório JSON em
+`artifacts/`, ambos fora do conjunto de arquivos versionáveis do projeto.
+
+**Entrega:** somente arquivos da REFINED, CLI, testes e documentação/configuração
+relacionados. Nenhum staging, commit ou push. Licença dos CSVs ainda pendente;
+dados e bancos continuam ignorados pelo Git.
