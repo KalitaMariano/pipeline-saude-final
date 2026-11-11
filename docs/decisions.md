@@ -52,7 +52,7 @@ curso e escolhas iniciais de configuração sujeitas à revisão da etapa 1.
 | Registros administrativos | MARTS exclui oito Death Certification, sete após óbito | Exclusão administrativa aprovada na revisão da etapa 4 |
 | Indicadores, faixas etárias e período | Cinco indicadores autorizados na etapa 4; fórmulas em marts_spec.md | Revisar concretização das regras |
 | Semântica financeira e moeda | Custo total de medicamentos é custo base × dispensações em todas as linhas | Consultar a documentação da versão e evitar dupla contagem |
-| Sincronização completa e lockfile | PyPI indisponível; cache permitiu instalar DuckDB, mas não resolver todo o projeto | Executar `uv sync` com conectividade e versionar o `uv.lock` |
+| Sincronização completa e lockfile | Resolvida na etapa 5 com acesso autorizado ao PyPI; uv.lock gerado | Versionar após aprovação desta entrega |
 
 As cinco perguntas propostas abrangem evolução dos atendimentos, utilização de
 emergência por idade, custos e cobertura por classe, concentração de custos de
@@ -151,3 +151,27 @@ incluindo rejeição de início anterior ao atendimento, permanecem inalterados.
 Resultado: 3.850 medicamentos, 146 códigos, 39.152 dispensações, custo de
 11.498.345,15 e 2.225 atendimentos com medicamentos; 5.563 atendimentos clínicos.
 Esta decisão substitui a exclusão temporal posterior da entrega inicial.
+
+## Etapa 5 — revisão final e reprodutibilidade
+
+Autorizada revisão de instalação, lockfile, execução limpa, fonte/licença,
+testes, falhas auxiliares e documentação; sem alterar regras analíticas.
+
+- DNS do PyPI no sandbox era a causa reproduzida da falha uv sync. Acesso
+  autorizado resolveu. DuckDB 1.5.6 e pytest 9.1.1 preservados no uv.lock,
+  sem mudar faixas do pyproject. Removido pythonpath do pytest para validar
+  os imports a partir da instalação normal.
+- Instalação limpa, 39 testes e execução das três camadas por entry point
+  confirmados. Wheel e sdist construídos; wheel executado fora do checkout.
+- Origem informada: synthea.mitre.org/downloads; página oficial alternativa
+  consultada e pacote CSV latest baixado e processado com sucesso. Esse pacote
+  difere dos CSVs históricos; a reprodução dos mesmos totais segue dependente
+  da identificação do pacote original. Hashes em reproducibility.md.
+- Termos oficiais dos dados permitem uso sem restrições e solicitam citação.
+  Apache-2.0 é a licença do gerador, não atribuída automaticamente aos CSVs.
+  Licença do código deste projeto ainda depende de escolha do responsável.
+- Falhas status 1 de consultas auxiliares não indicam problema do pipeline;
+  diagnóstico e correções em reproducibility.md. Regras aprovadas preservadas.
+
+As pendências históricas de rede/instalação nas seções anteriores descrevem
+as etapas respectivas e ficam superadas pelas validações desta etapa.

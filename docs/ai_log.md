@@ -152,3 +152,37 @@ Relatório atualizado em artifacts/marts_validation.json (ignorado).
 
 **Entrega:** oito arquivos de SQL/teste/documentação ajustados nesta revisão;
 nenhuma alteração no código ou nos dados RAW/REFINED, sem commit ou push.
+
+## 10/11/2026 — etapa 5: revisão final e reprodutibilidade
+
+**Escopo:** resolver uv sync e lockfile, validar instalação do zero e entry points,
+revisar testes e documentação, conferir origem/licença e falhas da revisão MARTS.
+Sem alteração de regras analíticas, dados de origem ou banco original.
+
+**Dependências:** reproduzida falha DNS no sandbox; acesso ao PyPI autorizado
+resolveu instalação. Primeira resolução selecionou pytest 9.2.0; corrigida para
+preservar pytest 9.1.1. DuckDB 1.5.6 mantido; faixas de dependências inalteradas.
+uv.lock gerado. Removido pythonpath do pytest para testar instalação normal.
+
+**Validação:** cópia sem .venv, cache, CSVs ou banco; sync com cache novo e rede;
+39 testes aprovados sem PYTHONPATH. Três camadas pelo entry point criaram banco
+novo em /tmp a partir dos CSVs locais, com totais históricos confirmados e hashes
+dos CSVs inalterados. Sdist e wheel construídos; wheel instalado em outro ambiente
+e executado fora do checkout. Pacote oficial latest também processado pelas três
+camadas, com resultados diferentes, documentados em reproducibility.md.
+
+**Fonte/licença:** domínio MITRE retornou timeout/502; consultadas FAQ, página
+oficial alternativa e LICENSE do gerador. Registrada permissão de uso dos dados
+sem confundir com Apache-2.0 do software. Pacote histórico exato não identificado;
+solicitada informação ao usuário durante a revisão, sem presumir a resposta.
+
+**Erros investigados:** reproduzidos row(t.*) e alias cost das consultas auxiliares
+em /tmp; hash(t) e alias total_cost funcionaram. O status 1 final da etapa anterior
+também pode ser identificado como rg sem correspondências após edição Python,
+sem indicar falha do pipeline. Nesta etapa, uv venv inicialmente tentou usar cache
+somente leitura: reexecutado com cache em /tmp. Instalação offline do wheel sem
+metadados de resolução no cache falhou; instalação normal autorizada resolveu.
+Nenhuma dessas falhas alterou regras analíticas ou exigiu dependência nova.
+
+**Entrega:** README, configuração pytest, uv.lock e documentação da revisão.
+Nenhum CSV, banco, cache ou build incluído. Sem staging, commit ou push.

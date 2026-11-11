@@ -1,193 +1,181 @@
 # Pipeline de saúde — projeto final de Engenharia de Dados
 
-## Objetivo e estado atual
+Pipeline Python, uv, DuckDB e SQL com camadas RAW → REFINED → MARTS no mesmo
+banco local. Etapas 1–4 publicadas com commits separados; etapa 5 revisa instalação
+e reprodutibilidade. Sem orquestrador ou dashboard. **39 testes unitários** usam
+somente dados fictícios e DuckDB em memória.
 
-Construir um pipeline Python para organizar e analisar dados sintéticos de saúde,
-com as camadas raw, refined e marts. O projeto segue spec-driven development:
-documentar requisitos e decisões antes de implementar, avançando por etapas
-revisadas e com um commit separado para cada etapa.
+## Instalação e execução
 
-**Etapa 4:** RAW, REFINED e os cinco indicadores MARTS implementados.
-Testes unitários usam dados fictícios em memória. Dashboard fora desta etapa.
-
-## Tecnologias
-
-- Python 3.12 ou superior e uv para gerenciar o projeto e as dependências.
-- DuckDB e SQL para armazenamento e análise.
-- pytest para testes com dados fictícios, sem acessar o banco persistido.
-- Sem orquestrador.
-
-As dependências estão declaradas em `pyproject.toml`. Em um ambiente com acesso
-ao PyPI, execute a partir da raiz do projeto:
+Pré-requisitos: Git, [uv](https://docs.astral.sh/uv/getting-started/installation/),
+Python 3.12 ou superior e acesso ao PyPI na primeira instalação. A validação foi
+feita com Python 3.12.3, uv 0.13.5, DuckDB 1.5.6 e pytest 9.1.1 em Linux x86_64.
+Após clonar o repositório e entrar na raiz do projeto:
 
 ```bash
-uv sync
-uv run pipeline-saude raw
-uv run pipeline-saude refined
-uv run pipeline-saude marts
-uv run pytest -q
+uv sync --locked --python 3.12
+uv run --locked pytest -q
 ```
 
-O comando lê `data/` e grava `artifacts/saude.duckdb`. Para escolher os caminhos:
+O `uv.lock` fixa versões e hashes; não é necessário instalar pacotes manualmente,
+ativar a `.venv` ou definir `PYTHONPATH`. Os testes não precisam dos CSVs.
+Prepare os arquivos conforme a seção seguinte e execute na ordem:
 
 ```bash
-uv run pipeline-saude raw --data-dir data --database artifacts/saude.duckdb
-uv run pipeline-saude refined --database artifacts/saude.duckdb
-uv run pipeline-saude marts --database artifacts/saude.duckdb
-uv run pipeline-saude raw --help
-uv run pipeline-saude refined --help
+uv run --locked pipeline-saude raw --data-dir data --database artifacts/saude.duckdb
+uv run --locked pipeline-saude refined --database artifacts/saude.duckdb
+uv run --locked pipeline-saude marts --database artifacts/saude.duckdb
 ```
 
-Também é possível executar o módulo após instalar o projeto:
-`uv run python -m pipeline_saude.cli raw`.
-A saída JSON informa banco, lote, instante, hashes e contagens esperadas/obtidas.
-Na REFINED, a saída informa banco, contagens e ocorrências de cada flag.
-Falhas retornam código de saída 1 e mensagem no stderr. A REFINED requer um
-banco existente com as três tabelas RAW e não executa a ingestão automaticamente.
+Esses caminhos são os padrões; também funcionam `uv run --locked pipeline-saude
+raw`, `refined` e `marts`, cada um como comando separado. Consulte
+`uv run --locked pipeline-saude --help` e o `--help` de cada subcomando.
+A CLI instalada também aceita `uv run --locked python -m pipeline_saude.cli raw`.
+RAW lê os três CSVs; REFINED exige RAW existente e MARTS exige REFINED existente.
+As etapas não executam automaticamente as anteriores. Cada etapa substitui seu
+snapshot em uma transação, sem acumular linhas; erro desfaz a etapa e retorna
+status 1. JSON no stdout informa contagens; mensagens de erro vão para stderr.
 
-O PyPI estava inacessível na etapa RAW. DuckDB 1.5.6 e, na etapa REFINED,
-pytest 9.1.1 foram instalados do cache local. Comandos validados nesse ambiente:
+O problema anterior do `uv sync` era DNS/rede no ambiente restrito, não conflito
+de dependências. O acesso autorizado ao PyPI resolveu a instalação. Em redes
+restritas, libere PyPI e files.pythonhosted.org; `--offline` só funciona após
+preencher o cache. Um aviso de `VIRTUAL_ENV` de outro projeto não altera o destino:
+uv usa a `.venv` deste projeto. Prefira desativar o outro ambiente; não use
+`--active` para instalar neste projeto. Relatório: [docs/reproducibility.md](docs/reproducibility.md).
+
+## Fonte, termos de uso e obtenção dos CSVs
+
+Origem informada pelo responsável: [Synthea / MITRE — Downloads](https://synthea.mitre.org/downloads).
+Os dados são sintéticos, não registros de pessoas reais. A
+[página oficial alternativa de downloads](https://synthetichealth.github.io/downloads.html)
+permite uso dos dados sem restrições e solicita citação do Synthea/SyntheticMass.
+Essa declaração de uso dos dados é distinta da licença **Apache-2.0 do gerador**,
+verificável no [LICENSE do Synthea](https://github.com/synthetichealth/synthea/blob/master/LICENSE).
+Não atribuímos automaticamente Apache-2.0 ou CC0 aos CSVs. A licença do código
+deste projeto ainda não foi escolhida; este repositório não inclui os dados.
+
+Referência: Walonoski J. et al. *Synthea: An approach, method, and software
+mechanism for generating synthetic patients and the synthetic electronic health
+care record*. JAMIA, 25(3), 230–238, 2018. [DOI](https://doi.org/10.1093/jamia/ocx079).
+
+Para reproduzir a execução com a amostra pública:
+
+1. Abra a página de downloads e escolha **100 Sample Synthetic Patient Records,
+   CSV**, em “Latest Version of Synthea”. Se o domínio MITRE estiver indisponível,
+   use a página oficial alternativa acima.
+2. Baixe o [ZIP CSV oficial latest](https://synthetichealth.github.io/synthea-sample-data/downloads/latest/synthea_sample_data_csv_latest.zip).
+3. Extraia e copie somente `patients.csv`, `encounters.csv` e `medications.csv`
+   para `data/` na raiz do projeto. Use os três arquivos do mesmo pacote, mantendo
+   cabeçalhos e conteúdo originais. Não coloque o ZIP ou uma pasta intermediária
+   no lugar dos três CSVs. Os demais arquivos do Synthea não são consumidos.
+
+Alternativa por terminal, a partir da raiz (requer curl e Python):
 
 ```bash
-PYTHONPATH=src .venv/bin/python -m pipeline_saude.cli raw
-PYTHONPATH=src .venv/bin/python -m pipeline_saude.cli refined
-.venv/bin/python -m pytest -q
+mkdir -p data
+curl --fail --location https://synthetichealth.github.io/synthea-sample-data/downloads/latest/synthea_sample_data_csv_latest.zip --output data/synthea_sample_data_csv_latest.zip
+python3 - <<'PY'
+from pathlib import Path
+from zipfile import ZipFile
+with ZipFile('data/synthea_sample_data_csv_latest.zip') as archive:
+    for table in ('patients', 'encounters', 'medications'):
+        name = table + '.csv'
+        target = Path('data') / name
+        if target.exists():
+            raise SystemExit(f'{target} já existe; use uma pasta vazia para outra amostra.')
+    for table in ('patients', 'encounters', 'medications'):
+        name = table + '.csv'
+        (Path('data') / name).write_bytes(archive.read(name))
+PY
 ```
 
-A sincronização completa e a geração do `uv.lock` continuam pendentes; quando
-gerado, o lockfile deverá ser versionado. O entry point instalado por `uv sync`
-ainda precisa ser validado; a CLI como módulo Python foi validada.
-
-## Dados disponíveis
-
-Os três CSVs locais foram informados como provenientes do Synthea. A origem
-exata, a versão, os parâmetros de geração e a licença aplicável ainda precisam
-ser confirmados. Por isso, **a pasta `data/` está excluída do Git**. Este
-repositório, por enquanto, não distribui os arquivos nem declara uma licença
-para os dados.
-
-Perfil observado nos arquivos locais em 10/11/2026:
-
-| Arquivo | Significado | Linhas | Colunas | Identificação |
-| --- | --- | ---: | ---: | --- |
-| `patients.csv` | Cadastro de pacientes | 108 | 28 | `Id`, único e preenchido |
-| `encounters.csv` | Atendimentos | 5.571 | 15 | `Id`, único e preenchido |
-| `medications.csv` | Registros de medicamentos vinculados a atendimentos | 3.850 | 13 | Sem coluna `Id` |
-
-Não foram encontradas linhas integralmente duplicadas em nenhum dos arquivos.
-Todos os pacientes têm `STATE = Massachusetts`.
-
-### Relacionamentos confirmados
-
-- `encounters.PATIENT` referencia `patients.Id`: nenhum registro órfão.
-- `medications.PATIENT` referencia `patients.Id`: nenhum registro órfão.
-- `medications.ENCOUNTER` referencia `encounters.Id`: nenhum registro órfão.
-- Nos 3.850 registros de medicamentos, o paciente coincide com o do atendimento.
-- Os 108 pacientes têm atendimentos; 105 têm registros de medicamentos.
-- Existem medicamentos vinculados a 2.225 dos 5.571 atendimentos.
-
-### Cuidados identificados
-
-- Pacientes: 99 datas de óbito ausentes, 29 valores de `FIPS` ausentes e 29
-  códigos postais `00000`. Códigos postais devem preservar zeros iniciais.
-- Atendimentos: 2.044 registros sem código e descrição do motivo. Os inícios
-  vão de 26/11/1942 a 16/08/2026.
-- Medicamentos: 268 términos ausentes, 900 registros sem motivo e 995 registros
-  com início igual ao término. Os inícios vão de 04/12/1955 a 16/08/2026.
-- A combinação paciente, atendimento, código e início repete-se em nove grupos
-  de medicamentos; os términos diferem. Não é seguro deduplicar por essa chave.
-- Sete atendimentos posteriores ao óbito têm descrição `Death Certification`.
-  A MARTS exclui todos os oito registros `Death Certification` (incluindo um sem alerta temporal).
-- Um LEFT JOIN de atendimentos com medicamentos gera 7.196 linhas. Indicadores
-  deverão evitar a repetição de custos de atendimento.
-- `TOTALCOST = BASE_COST × DISPENSES` em todos os registros de medicamentos.
-  Moeda, escopo dos custos e significado financeiro da cobertura ainda precisam
-  de confirmação; não somar custos de tabelas diferentes sem essa definição.
-
-Esses números descrevem os arquivos locais, não a população real. As regras
-finais de qualidade e dos indicadores serão especificadas antes da implementação.
-
-## Arquitetura e estrutura
-
-As três camadas estão aprovadas. A RAW preserva os campos originais como texto,
-incluindo vazios como `''`, zeros e espaços. Acrescenta `_source_file`,
-`_source_sha256`, `_source_row_number`, `_ingested_at` e `_batch_id`.
-Cada execução substitui as três tabelas em uma única transação, sem acumular
-linhas e sem deduplicar a origem. Não mantém versões antigas no banco.
-Consulte o contrato completo em [docs/raw_spec.md](docs/raw_spec.md) e a
-validação em [docs/raw_validation.md](docs/raw_validation.md).
-
-A REFINED converte datas, timestamps em instantes UTC, moedas em `DECIMAL(18,2)`,
-renda e dispensações em inteiros e coordenadas em `DOUBLE`. Identificadores,
-códigos e CEPs continuam textos; campos vazios tornam-se nulos. Registros não
-são excluídos nem deduplicados. `_quality_flags` sinaliza chaves, relacionamentos
-e anomalias; `_medication_id` rastreia medicamentos por arquivo, hash e posição.
-Valores preenchidos incompatíveis com os tipos interrompem a transação inteira,
-sem transformar erros em nulos silenciosamente. A recarga substitui as três
-tabelas sem acúmulo.
-
-Contrato: [docs/refined_spec.md](docs/refined_spec.md).
-Resultados: [docs/refined_validation.md](docs/refined_validation.md).
-A validação local manteve **108 pacientes, 5.571 atendimentos e 3.850
-medicamentos** nas duas execuções. **17 testes unitários aprovados**.
-A MARTS contém cinco tabelas: evolução por ano/classe (245 linhas), emergência
-por idade (4), custos/cobertura por ano/classe (245), medicamentos por código
-(146) e proporção de atendimentos com medicamentos por classe/idade (37).
-A população elegível tem 5.563 atendimentos e 3.850 medicamentos; 2.225
-atendimentos têm medicamentos elegíveis. Custos permanecem separados por entidade.
-
-Granularidades, denominadores, idade no atendimento e exclusões:
-[docs/marts_spec.md](docs/marts_spec.md). Contagens, reconciliação financeira e
-recarga: [docs/marts_validation.md](docs/marts_validation.md).
-**39 testes aprovados**, incluindo 22 casos MARTS.
-Os 65 medicamentos iniciados após o atendimento participam dos indicadores 4 e 5;
-o alerta temporal permanece na REFINED. Os oito `Death Certification` ficam
-fora da população de atendimentos clínicos por decisão aprovada.
-Comando local validado: `PYTHONPATH=src .venv/bin/python -m pipeline_saude.cli marts`.
-O comando requer REFINED existente e substitui as cinco tabelas em uma transação;
-a saída JSON informa contagens elegíveis e por tabela. Os SQLs são incluídos no wheel.
+Layout esperado:
 
 ```text
-pipeline-saude-final/
-├── data/                       # CSVs locais; ignorados pelo Git
-├── docs/
-│   ├── decisions.md            # Decisões aprovadas e questões pendentes
-│   ├── ai_log.md               # Uso da IA, limitações e correções
-│   ├── raw_spec.md             # Contrato de ingestão
-│   ├── raw_validation.md       # Resultados da RAW
-│   ├── refined_spec.md         # Tipos, identidade e qualidade
-│   └── refined_validation.md   # Resultados da REFINED
-├── src/pipeline_saude/
-│   ├── __init__.py
-│   ├── cli.py                  # Comandos raw, refined e marts
-│   ├── raw/
-│   │   ├── __init__.py
-│   │   └── ingest.py           # Leitura e carga transacional
-│   ├── refined/
-│   │   ├── __init__.py
-│   │   └── transform.py        # Tipagem e qualidade transacionais
-│   └── marts/                  # Execução transacional dos indicadores
-├── tests/
-│   ├── conftest.py             # Dados fictícios e conexão em memória
-│   └── test_refined.py
-├── sql/marts/                  # Cinco indicadores SQL e base compartilhada
-├── .gitignore
-├── pyproject.toml
-└── README.md
+data/
+├── patients.csv
+├── encounters.csv
+└── medications.csv
 ```
 
-Os arquivos `.gitkeep` preservam diretórios vazios no Git. O diretório
-`artifacts/` contém o banco local e relatórios gerados e está ignorado.
-Os contratos e testes MARTS complementam a estrutura acima em
-`docs/marts_spec.md`, `docs/marts_validation.md` e `tests/test_marts.py`.
+**Reproduzir a execução não garante reproduzir os totais históricos.** O link
+`latest` muda. O download verificado na etapa 5 contém 111 pacientes, 5.059
+atendimentos e 3.216 medicamentos e difere da amostra local das etapas 1–4
+(108 / 5.571 / 3.850). A URL do pacote exato, versão, seed e parâmetros que
+originaram os arquivos locais ainda não foram identificados. Os hashes das duas
+amostras estão em [docs/reproducibility.md](docs/reproducibility.md). Para obter os
+mesmos totais históricos, é necessário obter os três arquivos com os hashes
+locais registrados. Não recorte tabelas isoladamente para tentar igualar contagens.
+`data/` e `artifacts/` permanecem integralmente ignorados pelo Git.
 
-## Desenvolvimento por etapas
+## Arquitetura e granularidade
 
-1. Estrutura, configuração e documentação inicial — preparada anteriormente.
-2. Ingestão RAW e validação — preparada anteriormente.
-3. REFINED, testes unitários e validação — preparada anteriormente.
-4. Indicadores SQL e marts — implementada, aguardando revisão.
+| Camada / tabela | Granularidade | Tratamento |
+| --- | --- | --- |
+| `raw.patients` | uma linha por registro de origem de paciente | Todas as colunas originais como texto |
+| `raw.encounters` | uma linha por registro de origem de atendimento | Idem, sem deduplicação |
+| `raw.medications` | uma linha por registro de origem de medicamento | Código não é chave única |
+| `refined.patients` | mesma linha da RAW | Datas, números e valores monetários tipados |
+| `refined.encounters` | mesma linha da RAW | Instantes com fuso; moedas DECIMAL |
+| `refined.medications` | mesma linha da RAW | Identidade técnica por arquivo/hash/posição |
 
-Cada etapa terá um commit separado após revisão. Não realizar commit ou push
-automaticamente. Consulte `docs/decisions.md` para o escopo aprovado e as
-pendências que limitam as próximas etapas.
+RAW acrescenta arquivo, SHA-256, posição, lote e instante da carga. REFINED
+preserva registros, converte vazios em nulos, mantém códigos/CEPs como texto e
+acrescenta `_quality_flags`. Conversões inválidas abortam a transação; alertas
+não apagam ou corrigem registros. As três camadas são snapshots sem histórico.
+
+JOINs: `encounters.PATIENT = patients.Id`; medicamentos por `ENCOUNTER =
+encounters.Id` e mesmo `PATIENT`. MARTS exclui chaves de pais ambíguas antes dos
+JOINs. A associação usa atendimentos distintos antes do LEFT JOIN; custos de
+atendimentos não são somados depois de um JOIN de um para muitos com medicamentos.
+
+Contratos: [RAW](docs/raw_spec.md), [REFINED](docs/refined_spec.md),
+[MARTS](docs/marts_spec.md). SQLs em `sql/marts/`; código e CLI em
+`src/pipeline_saude/`; testes em `tests/`; decisões e registro da IA em `docs/`.
+O wheel inclui os SQLs e funciona fora do checkout.
+
+## Cinco indicadores MARTS
+
+| Tabela | Granularidade | Medidas / denominadores |
+| --- | --- | --- |
+| `encounters_by_year_class` | ano UTC × classe | Contagem de atendimentos clínicos |
+| `emergency_by_age` | faixa etária, todos os anos | Emergências / todos os atendimentos da faixa; pacientes distintos |
+| `encounter_costs_by_year_class` | ano UTC × classe | Custos e cobertura; média por atendimento financeiro válido; cobertura / custo total válido |
+| `medication_costs_by_code` | código textual, todos os anos | Registros, dispensações, custos e cobertura; custo / dispensações válidas |
+| `encounters_with_medications` | classe × faixa etária, todos os anos | Atendimentos com medicamentos associados / atendimentos clínicos do grupo |
+
+Idade completa na data UTC do atendimento; faixas 0–17, 18–44, 45–64 e 65+.
+Os oito `Death Certification` ficam fora da população clínica por decisão
+aprovada. Os 65 medicamentos iniciados após o término do atendimento local são
+incluídos nos indicadores 4 e 5; os alertas temporais permanecem na REFINED.
+Os demais filtros aprovados estão em [marts_spec.md](docs/marts_spec.md).
+Anomalias financeiras afetam somas e denominadores financeiros; não removem
+indiscriminadamente utilização ou vínculo. Divisão por zero retorna NULL.
+
+Validação histórica com os arquivos locais: 5.563 atendimentos clínicos, 3.850
+medicamentos, 146 códigos, 39.152 dispensações, custo de medicamentos de
+11.498.345,15 e 2.225 atendimentos com medicamentos. Linhas MARTS, na ordem acima:
+**245 / 4 / 245 / 146 / 37**. Evidências:
+[raw_validation.md](docs/raw_validation.md),
+[refined_validation.md](docs/refined_validation.md),
+[marts_validation.md](docs/marts_validation.md).
+
+## Limitações
+
+- Dados sintéticos e amostra observacional: os indicadores não representam a
+  população real nem sustentam inferências causais ou decisões clínicas.
+- Emergência mede participação nos atendimentos observados, não incidência
+  populacional ou taxa por pessoa-tempo. Só há grupos observados nas MARTS.
+- Custos de atendimentos e medicamentos permanecem separados. TOTALCOST já
+  incorpora dispensações; não multiplicar novamente. Moeda e escopo financeiro
+  da versão local não foram confirmados; não somar os custos das duas entidades.
+- Valores geográficos ausentes, medicamentos com término nulo ou duração zero
+  são preservados; alertas não provam erro clínico nem indicam uso atual.
+- Downloads novos podem mudar conteúdo ou schema e exigir revisão explícita do
+  contrato; o pipeline não altera as regras automaticamente para aceitá-los.
+- A instalação foi validada em Linux/Python 3.12; outras plataformas e versões
+  permitidas pelo projeto não foram testadas. O backend de build continua
+  declarado sem versão exata, como nas etapas anteriores.
+
+Etapa 5 preparada para revisão. Nenhum commit ou push automático; aguardar
+aprovação antes da publicação desta entrega.
